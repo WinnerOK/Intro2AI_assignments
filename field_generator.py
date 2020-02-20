@@ -14,7 +14,7 @@ output = []
 for line in reversed(content):
     for c in line:
         if c in mapper:
-            output.append(pattern % (mapper[c], i, j))
+            output.append(pattern % (mapper[c], j, i))
         j += 1
     j = 0
     i += 1

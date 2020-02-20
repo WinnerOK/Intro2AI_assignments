@@ -1,7 +1,15 @@
+% Coondinate system:
+% Y 
+% 4|***OT
+% 3|*O***
+% 2|*O*O*
+% 1|HO*O*
+% 0|*O***
+%   01234 X
 
 % ===========================
 % Constants
-fieldSize(20,20).
+fieldSize(5,5).
 sight_distance(1).
 
 % moveDirections: (name, dx, dy)
@@ -52,32 +60,36 @@ print(X, Y) :-
       ; write("█")
     ).
 
-iterate(X) :-
-    fieldSize(XMaxCoord, _),
-    write(X), write(" "), 
-    X < XMaxCoord, Xnew is X + 1, 
-    iterate(Xnew).
+iterate(Y) :-
+    write(Y), write(" "), 
+    Y > 0, Ynew is Y - 1, 
+    iterate(Ynew).
 
+% for (y = Y; y > 0; y --)
+    % for (x = X; x < Xsize; x ++)
 iterate(X, Y) :-
-    % write(X), write(" "), write(Y), write("\n"),
-    print(X,Y), % action at Y increment
-    % Size is duplicated, because otherwise it behaves strangely, working with printing X*X*Y times
-    (fieldSize(_, YMaxCoord), Y < YMaxCoord, Ynew is Y + 1, iterate(X, Ynew));
+    % format("~a ~a\n", [X, Y]),
+    print(X,Y), % action at X increment
+    % Size is duplicated, because otherwise it behaves strangely, working with printing Y*Y*X times
+    ( fieldSize(XSize, _), X < XSize - 1, Xnew is X + 1, iterate(Xnew, Y));
 
-    (fieldSize(XMaxCoord, YMaxCoord), Y = YMaxCoord, X < XMaxCoord, Xnew is X + 1, 
-    write("\n"), % action at X increment
-    iterate(Xnew, 0)).
+    (fieldSize(XSize, _), X =:= XSize - 1, Y > 0, Ynew is Y - 1, 
+    write("\n"), % action at Y increment
+    iterate(0, Ynew)).
 
-show_map :- iterate(0,0).
+show_map :- 
+    fieldSize(_, YMax),
+    Y is YMax -1,
+    iterate(0,Y).
 
 are_adjacent(X1,Y1,X2,Y2) :-
     (abs(X1-X2) =:= 1, abs(Y1-Y2) =:= 0);
     (abs(X1-X2) =:= 0, abs(Y1-Y2) =:= 1).
 
 is_inbound(X,Y) :-
-    fieldSize(XMaxCoord, YMaxCoord),
-    X >= 0, X < XMaxCoord,
-    Y >= 0, Y < YMaxCoord.
+    fieldSize(XSize, YSize),
+    X >= 0, X < XSize,
+    Y >= 0, Y < YSize.
     
 attempt_pass(X,Y, Dir, Path, NewPath) :-
     throwDir(Dir, Dx, Dy),
