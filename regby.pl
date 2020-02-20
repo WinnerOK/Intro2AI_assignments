@@ -102,24 +102,24 @@ attempt_move(X,Y, Dir, Path, NewPath) :-
     append(Path, [[Xnew, Ynew, "Move"]], NewPath).
     
 
-do_action(X,Y,Dir, Path, NewPath) :-
-    attempt_pass(X,Y,Dir, Path, NewPath);
-    attempt_move(X,Y,Dir,Path, NewPath).
+do_action(X,Y,Dir, Path, PassedThisRound,  NewPath, NewPassedThisRound) :-
+    (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), NewPassedThisRound = true);
+    (attempt_move(X, Y, Dir, Path, NewPath), NewPassedThisRound = PassedThisRound).
 
-go(Xstart, Ystart, PathStart, PathFinish) :-
+go(Xstart, Ystart, PathStart, _, PathFinish) :-
     attempt_move(Xstart, Ystart, _, PathStart, PathNew),
     last(PathNew, [Xnew, Ynew, _]),
     touchdown(Xnew, Ynew),
     PathFinish = PathNew, !.
 
-go(Xstart, Ystart, PathStart, PathFinish) :-
-    do_action(Xstart, Ystart, _, PathStart, PathMid),
+go(Xstart, Ystart, PathStart, PassedThisRound, PathFinish) :-
+    do_action(Xstart, Ystart, _, PathStart, PassedThisRound, PathMid, PassedThisRoundMid),
     last(PathMid, [Xmid, Ymid, _]),
     \+member([Xmid,Ymid, _], PathStart),
-    go(Xmid, Ymid, PathMid, PathFinish).
+    go(Xmid, Ymid, PathMid, PassedThisRoundMid,  PathFinish).
     
 
-find_touchdown(Path) :- go(0, 0, [[0, 0, "Init"]], Path).
+find_touchdown(Path) :- go(0, 0, [[0, 0, "Init"]], false, Path).
 
 :-
     init.
