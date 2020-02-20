@@ -1,7 +1,7 @@
 
 % ===========================
 % Constants
-field_max(5). % maximum coordinate: for 20x20 field, set it to 19
+fieldSize(20,20).
 sight_distance(1).
 
 % moveDirections: (name, dx, dy)
@@ -49,23 +49,22 @@ print(X, Y) :-
         human(X,Y) -> write("H") 
       ; ork(X,Y) -> write("O")
       ; touchdown(X,Y) -> write("T")
-    %   ; ball(X,Y) -> write("B")
       ; write("█")
     ).
 
 iterate(X) :-
-    field_max(MaxCoord),
+    fieldSize(XMaxCoord, _),
     write(X), write(" "), 
-    X < MaxCoord, Xnew is X + 1, 
+    X < XMaxCoord, Xnew is X + 1, 
     iterate(Xnew).
 
 iterate(X, Y) :-
     % write(X), write(" "), write(Y), write("\n"),
     print(X,Y), % action at Y increment
     % Size is duplicated, because otherwise it behaves strangely, working with printing X*X*Y times
-    (field_max(MaxCoord), Y < MaxCoord, Ynew is Y + 1, iterate(X, Ynew));
+    (fieldSize(_, YMaxCoord), Y < YMaxCoord, Ynew is Y + 1, iterate(X, Ynew));
 
-    (field_max(MaxCoord), Y = MaxCoord, X < MaxCoord, Xnew is X + 1, 
+    (fieldSize(XMaxCoord, YMaxCoord), Y = YMaxCoord, X < XMaxCoord, Xnew is X + 1, 
     write("\n"), % action at X increment
     iterate(Xnew, 0)).
 
@@ -76,14 +75,12 @@ are_adjacent(X1,Y1,X2,Y2) :-
     (abs(X1-X2) =:= 0, abs(Y1-Y2) =:= 1).
 
 is_inbound(X,Y) :-
-    field_max(MaxCoord),
-    X >= 0, X =< MaxCoord,
-    Y >= 0, Y =< MaxCoord.
+    fieldSize(XMaxCoord, YMaxCoord),
+    X >= 0, X < XMaxCoord,
+    Y >= 0, Y < YMaxCoord.
     
-%  TODO: introduce pass this round
 attempt_pass(X,Y, Dir, Path, NewPath) :-
     throwDir(Dir, Dx, Dy),
-    % format('~d ~d\n', [X, Y]),    
     Xnew is X + Dx, Ynew is Y + Dy,
     is_inbound(Xnew, Ynew),
     (
