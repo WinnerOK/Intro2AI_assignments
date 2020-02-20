@@ -18,8 +18,6 @@ moveDir(btm, 0, -1).
 moveDir(left, -1, 0).
 moveDir(right, 1, 0).
 
-
-
 throwDir(top, 0, 1).
 throwDir(btm, 0, -1).
 throwDir(left, -1, 0).
@@ -30,24 +28,11 @@ throwDir(botR, 1,-1).
 throwDir(botL, -1,-1).
 
 % ===========================
-% Variables
-
-% :- dynamic([
-%     ball/2,
-%     passed_this_round/1
-%     % h/2,
-%     % o/2,
-%     % t/2
-% ]).
-
-% ===========================
 % Utils
 
 ork(X,Y) :- current_predicate(o/2), o(X,Y).
 human(X,Y) :- current_predicate(h/2), h(X,Y).
 touchdown(X,Y) :- current_predicate(t/2), t(X,Y).
-
-
 
 init :-
     consult("input.pl").
@@ -97,7 +82,7 @@ attempt_pass(X,Y, Dir, Path, NewPath) :-
     is_inbound(Xnew, Ynew),
     (
         ork(Xnew, Ynew) -> false
-    ;   human(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, "Throw"]], NewPath)
+    ;   human(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
     ;   attempt_pass(Xnew, Ynew, Dir, Path, NewPath)
     ).
 
@@ -108,8 +93,7 @@ attempt_move(X,Y, Dir, Path, NewPath) :-
     
     is_inbound(Xnew, Ynew),
     \+ork(Xnew, Ynew),
-    append(Path, [[Xnew, Ynew, "Move"]], NewPath).
-    
+    append(Path, [[Xnew, Ynew, move]], NewPath).
 
 do_action(X,Y,Dir, Path, PassedThisRound,  NewPath, NewPassedThisRound) :-
     (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), NewPassedThisRound = true);
@@ -127,8 +111,35 @@ go(Xstart, Ystart, PathStart, PassedThisRound, PathFinish) :-
     \+member([Xmid,Ymid, _], PathStart),
     go(Xmid, Ymid, PathMid, PassedThisRoundMid,  PathFinish).
     
+find_touchdown(Path) :- 
+    go(0, 0, [], false, Path).
 
-find_touchdown(Path) :- go(0, 0, [[0, 0, "Init"]], false, Path).
+find_best_path(FromAtMost, Path) :-
+    % Pass FromAtMost > 0 to consider "FromAtMost" otherwise will consider all solutions
+    (FromAtMost =< 0 -> findall( P, find_touchdown(P), Bag); findnsols(FromAtMost, P, find_touchdown(P), Bag)),
+    select_element(get_less_score, Bag, Path).
+    
+
+% Calculating the best path is adapted from https://stackoverflow.com/questions/1660152/how-do-i-find-the-longest-list-in-a-list-of-lists
+select_element(Goal, [Head | Tail], Selected) :-
+    select_element(Goal, Tail, Head, Selected).
+
+select_element(_Goal, [], Selected, Selected).
+
+select_element(Goal, [Head | Tail], Current, FinalSelected) :-
+    call(Goal, Head, Current, Selected),
+    select_element(Goal, Tail, Selected, FinalSelected).
+
+count_score([], CurrentScore, FinalScore) :-
+    FinalScore = CurrentScore.
+
+count_score([[X,Y,Action]| Tail], CurrentScore, FinalScore) :-
+    ((Action = move, human(X,Y)) -> NewScore is CurrentScore; NewScore is CurrentScore + 1),
+    count_score(Tail, NewScore, FinalScore). 
+
+get_less_score(FirstPath, SecondPath, Less) :-
+    count_score(FirstPath, 0, FirstScore), count_score(SecondPath, 0, SecondScore),
+    (FirstScore < SecondScore -> Less = FirstPath; Less = SecondPath).
 
 :-
     init.
