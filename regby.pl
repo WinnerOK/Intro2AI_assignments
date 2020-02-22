@@ -77,13 +77,24 @@ select_element(Goal, [Head | Tail], Current, FinalSelected) :-
 has_not_been(OldPath, NewPath):-
     last(NewPath, [X,Y,_]),
     \+member([X,Y,_], OldPath).
-    
+
+is_valid_position(X,Y):-
+    is_inbound(X,Y),
+    \+ork(X,Y).
+
+is_valid_path(CheckValidity, Path):-
+    CheckValidity -> (
+        last(Path, [X,Y,_]),
+        is_valid_position(X,Y)
+    )
+    ; true.
+
 % ===========================
 % Api
 
 show_map :- 
     fieldSize(_, YMax),
-    Y is YMax -1,
+    Y is YMax - 1,
     iterate(0,Y).
 
 are_adjacent(X1,Y1,X2,Y2) :-
@@ -98,9 +109,12 @@ is_inbound(X,Y) :-
 attempt_pass(X,Y, Dir, Path, NewPath) :-
     throwDir(Dir, Dx, Dy),
     Xnew is X + Dx, Ynew is Y + Dy,
-    is_inbound(Xnew, Ynew),
+    % is_inbound(Xnew, Ynew),
     (
-        ork(Xnew, Ynew) -> false
+        % First 2 conditions were used to fail the predicate, but due to random search needs
+        % I decided to move check on the upper level
+        \+is_inbound(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
+    ;   ork(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
     ;   human(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
     ;   attempt_pass(Xnew, Ynew, Dir, Path, NewPath)
     ).
@@ -110,13 +124,13 @@ attempt_move(X,Y, Dir, Path, NewPath) :-
     moveDir(Dir, Dx, Dy),
     Xnew is X + Dx, Ynew is Y + Dy,
     
-    is_inbound(Xnew, Ynew),
-    \+ork(Xnew, Ynew),
+    is_inbound(Xnew, Ynew), % This check wasn't move since even in random search player knows it's pos
+    % \+ork(Xnew, Ynew), % Check moved on upper layer
     append(Path, [[Xnew, Ynew, move]], NewPath).
 
-do_action(X,Y,Dir, Path, PassedThisRound,  NewPath, NewPassedThisRound) :-
-    (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), has_not_been(Path, NewPath), NewPassedThisRound = true);
-    (attempt_move(X, Y, Dir, Path, NewPath), has_not_been(Path, NewPath), NewPassedThisRound = PassedThisRound).
+do_action(X,Y,Dir, Path, PassedThisRound, CheckValidity,  NewPath, NewPassedThisRound) :-
+    (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), is_valid_path(CheckValidity, NewPath) ,has_not_been(Path, NewPath), NewPassedThisRound = true);
+    (attempt_move(X, Y, Dir, Path, NewPath), has_not_been(Path, NewPath), is_valid_path(CheckValidity, NewPath), NewPassedThisRound = PassedThisRound).
 
 count_score([], CurrentScore, FinalScore) :-
     FinalScore = CurrentScore.
@@ -131,10 +145,10 @@ go(Xstart, Ystart, PathStart, _, PathFinish) :-
     attempt_move(Xstart, Ystart, _, PathStart, PathNew),
     last(PathNew, [Xnew, Ynew, _]),
     touchdown(Xnew, Ynew),
-    PathFinish = PathNew, !.
+    PathFinish = PathNew.
 
 go(Xstart, Ystart, PathStart, PassedThisRound, PathFinish) :-
-    do_action(Xstart, Ystart, _, PathStart, PassedThisRound, PathMid, PassedThisRoundMid),
+    do_action(Xstart, Ystart, _, PathStart, PassedThisRound, true, PathMid, PassedThisRoundMid),
     last(PathMid, [Xmid, Ymid, _]),
     \+member([Xmid,Ymid, _], PathStart),
     go(Xmid, Ymid, PathMid, PassedThisRoundMid,  PathFinish).
@@ -157,7 +171,7 @@ get_less_score(FirstPath, SecondPath, Less) :-
 get_possible_steps(X,Y, Path, PassedThisRound, PossibleSteps) :-
     findall(
         [NewPassedThisRound|[NewPath]], 
-        do_action(X,Y, _, Path, PassedThisRound, NewPath, NewPassedThisRound), 
+        do_action(X,Y, _, Path, PassedThisRound, false, NewPath, NewPassedThisRound), 
         PossibleSteps).
 
 make_random_step(X, Y, Path, PassedThisRound, NewPath, NewPassedThisRound) :-
@@ -170,7 +184,8 @@ make_random_step(X, Y, Path, PassedThisRound, NewPath, NewPassedThisRound) :-
 
 generate_random_path(X,Y,Path, PassedThisRound, StepsLeft, RandomPath) :-
     StepsLeft > 0,
-    once(make_random_step(X,Y, Path, PassedThisRound, NewPath, NewPassedThisRound)), !, % Cut to disable change of random move
+    once(make_random_step(X,Y, Path, PassedThisRound, NewPath, NewPassedThisRound)), 
+    is_valid_path(true, NewPath), !, % Cut to disable change of random move
     last(NewPath, [NewX, NewY, _]),
     (
         (touchdown(NewX, NewY), RandomPath = NewPath, !);
