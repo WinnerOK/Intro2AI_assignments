@@ -74,6 +74,10 @@ select_element(Goal, [Head | Tail], Current, FinalSelected) :-
     call(Goal, Head, Current, Selected),
     select_element(Goal, Tail, Selected, FinalSelected).
 
+has_not_been(OldPath, NewPath):-
+    last(NewPath, [X,Y,_]),
+    \+member([X,Y,_], OldPath).
+    
 % ===========================
 % Api
 
@@ -111,8 +115,8 @@ attempt_move(X,Y, Dir, Path, NewPath) :-
     append(Path, [[Xnew, Ynew, move]], NewPath).
 
 do_action(X,Y,Dir, Path, PassedThisRound,  NewPath, NewPassedThisRound) :-
-    (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), NewPassedThisRound = true);
-    (attempt_move(X, Y, Dir, Path, NewPath), NewPassedThisRound = PassedThisRound).
+    (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), has_not_been(Path, NewPath), NewPassedThisRound = true);
+    (attempt_move(X, Y, Dir, Path, NewPath), has_not_been(Path, NewPath), NewPassedThisRound = PassedThisRound).
 
 count_score([], CurrentScore, FinalScore) :-
     FinalScore = CurrentScore.
@@ -163,24 +167,21 @@ make_random_step(X, Y, Path, PassedThisRound, NewPath, NewPassedThisRound) :-
     nth1(RandomStepIndex, PossibleSteps, RandomStep),
     [NewPassedThisRound, NewPath] = RandomStep.
 
+
 generate_random_path(X,Y,Path, PassedThisRound, StepsLeft, RandomPath) :-
     StepsLeft > 0,
-    make_random_step(X,Y, Path, PassedThisRound, NewPath, _), !, % Cun to disable change of random move
+    once(make_random_step(X,Y, Path, PassedThisRound, NewPath, NewPassedThisRound)), !, % Cut to disable change of random move
     last(NewPath, [NewX, NewY, _]),
-    touchdown(NewX, NewY),  
-    RandomPath = NewPath.
+    (
+        (touchdown(NewX, NewY), RandomPath = NewPath, !);
+        (
+            NewStepsLeft is StepsLeft - 1, 
+            generate_random_path(NewX, NewY, NewPath, NewPassedThisRound, NewStepsLeft, RandomPath)
+        )
+    ).
 
-% Out of global stack
-%  TODO: debug https://marketplace.visualstudio.com/items?itemName=arthurwang.vsc-prolog#debugger-settings
-generate_random_path(X,Y,Path, PassedThisRound, StepsLeft, RandomPath) :-
-    StepsLeft > 0,
-    make_random_step(X,Y, Path, PassedThisRound, NewPath, NewPassedThisRound), !, % Cun to disable change of random move
-    last(NewPath, [NewX, NewY, _]),
-    NewStepsLeft is StepsLeft - 1, 
-    generate_random_path(NewX, NewY, NewPath, NewPassedThisRound, NewStepsLeft, RandomPath).
-    
-    
+random_search(StepsAllowed, RandomPath) :-
+    generate_random_path(0, 0, [[0,0,init]], false, StepsAllowed, RandomPath).
 
-:-
+ :-
     init.
-
