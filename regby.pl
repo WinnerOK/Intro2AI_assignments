@@ -64,16 +64,6 @@ iterate(X, Y) :-
     write("\n"), % action at Y increment
     iterate(0, Ynew)).
 
-% Calculating the best path is adapted from https://stackoverflow.com/questions/1660152/how-do-i-find-the-longest-list-in-a-list-of-lists
-select_element(Goal, [Head | Tail], Selected) :-
-    select_element(Goal, Tail, Head, Selected).
-
-select_element(_Goal, [], Selected, Selected).
-
-select_element(Goal, [Head | Tail], Current, FinalSelected) :-
-    call(Goal, Head, Current, Selected),
-    select_element(Goal, Tail, Selected, FinalSelected).
-
 has_not_been(OldPath, NewPath):-
     last(NewPath, [X,Y,_]),
     \+member([X,Y,_], OldPath).
@@ -89,6 +79,16 @@ is_valid_path(CheckValidity, Path):-
     )
     ; true.
 
+get_max_steps_count(Cnt) :-
+    fieldSize(X,Y),
+    Cnt is X*Y + 1.
+
+set_current_max(CurMax) :-
+    nb_setval(current_max, CurMax).
+
+get_current_max(CurMax) :-
+    nb_getval(current_max, CurMax).
+    
 % ===========================
 % Api
 
@@ -106,31 +106,44 @@ is_inbound(X,Y) :-
     X >= 0, X < XSize,
     Y >= 0, Y < YSize.
     
-attempt_pass(X,Y, Dir, Path, NewPath) :-
+attempt_pass(X,Y, Dir, Path, CurrentScore, NewPath, NewScore) :-
     throwDir(Dir, Dx, Dy),
     Xnew is X + Dx, Ynew is Y + Dy,
     % is_inbound(Xnew, Ynew),
     (
         % First 2 conditions were used to fail the predicate, but due to random search needs
         % I decided to move check on the upper level
-        \+is_inbound(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
-    ;   ork(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
-    ;   human(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath)
-    ;   attempt_pass(Xnew, Ynew, Dir, Path, NewPath)
+        \+is_inbound(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath), NewScore is CurrentScore + 1
+    ;   ork(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath), NewScore is CurrentScore + 1
+    ;   human(Xnew, Ynew) -> append(Path, [[Xnew, Ynew, pass]], NewPath), NewScore is CurrentScore + 1
+    ;   attempt_pass(Xnew, Ynew, Dir, Path, CurrentScore, NewPath, NewScore)
     ).
 
-attempt_move(X,Y, Dir, Path, NewPath) :-
+attempt_move(X,Y, Dir, Path, CurrentScore, NewPath, NewScore) :-
     is_inbound(X,Y),
     moveDir(Dir, Dx, Dy),
     Xnew is X + Dx, Ynew is Y + Dy,
     
-    is_inbound(Xnew, Ynew), % This check wasn't move since even in random search player knows it's pos
+    % This check wasn't move since even in random search player knows it's pos
+    is_inbound(Xnew, Ynew),
     % \+ork(Xnew, Ynew), % Check moved on upper layer
-    append(Path, [[Xnew, Ynew, move]], NewPath).
+    append(Path, [[Xnew, Ynew, move]], NewPath),
+    (
+        human(Xnew, Ynew) -> NewScore = CurrentScore 
+    ;   NewScore is CurrentScore + 1     
+    ).
 
-do_action(X,Y,Dir, Path, PassedThisRound, CheckValidity,  NewPath, NewPassedThisRound) :-
-    (\+PassedThisRound,  attempt_pass(X, Y, Dir, Path, NewPath), is_valid_path(CheckValidity, NewPath) ,has_not_been(Path, NewPath), NewPassedThisRound = true);
-    (attempt_move(X, Y, Dir, Path, NewPath), has_not_been(Path, NewPath), is_valid_path(CheckValidity, NewPath), NewPassedThisRound = PassedThisRound).
+do_action(X,Y,Dir, Path, PassedThisRound, CurrentScore, CheckValidity,  
+        NewPath, NewPassedThisRound, NewScore) :-
+    (
+        \+PassedThisRound,  attempt_pass(X, Y, Dir, Path, CurrentScore, NewPath, NewScore), 
+        is_valid_path(CheckValidity, NewPath), has_not_been(Path, NewPath), 
+        NewPassedThisRound = true
+    );
+    (   attempt_move(X, Y, Dir, Path, CurrentScore, NewPath, NewScore), 
+        is_valid_path(CheckValidity, NewPath), has_not_been(Path, NewPath), 
+        NewPassedThisRound = PassedThisRound
+    ).
 
 count_score([], CurrentScore, FinalScore) :-
     FinalScore = CurrentScore.
@@ -141,30 +154,33 @@ count_score([[X,Y,Action]| Tail], CurrentScore, FinalScore) :-
 
 % ===========================
 % Backtracking
-go(Xstart, Ystart, PathStart, _, PathFinish) :-
-    attempt_move(Xstart, Ystart, _, PathStart, PathNew),
+go(Xstart, Ystart, PathStart, CurrentScore, _, PathFinish, NewScore) :-
+    attempt_move(Xstart, Ystart, _, PathStart, CurrentScore, PathNew, NextScore),
+    get_current_max(MaxScore),
+    NextScore =< MaxScore,
     last(PathNew, [Xnew, Ynew, _]),
     touchdown(Xnew, Ynew),
-    PathFinish = PathNew.
+    set_current_max(NextScore),
+    PathFinish = PathNew,
+    NewScore = NextScore.
 
-go(Xstart, Ystart, PathStart, PassedThisRound, PathFinish) :-
-    do_action(Xstart, Ystart, _, PathStart, PassedThisRound, true, PathMid, PassedThisRoundMid),
+go(Xstart, Ystart, PathStart, CurrentScore, PassedThisRound, PathFinish, NewScore) :-
+    do_action(Xstart, Ystart, _, PathStart, PassedThisRound, CurrentScore, true, PathMid, PassedThisRoundMid, NewScoreMid),
+    get_current_max(MaxScore),
+    NewScoreMid =< MaxScore,
     last(PathMid, [Xmid, Ymid, _]),
     \+member([Xmid,Ymid, _], PathStart),
-    go(Xmid, Ymid, PathMid, PassedThisRoundMid,  PathFinish).
+    go(Xmid, Ymid, PathMid, NewScoreMid, PassedThisRoundMid,  PathFinish, NewScore).
     
-find_touchdown(Path) :- 
-    go(0, 0, [], false, Path).
+find_touchdown(Path, Score) :-
+    get_max_steps_count(MaxScore),
+    set_current_max(MaxScore),
+    go(0, 0, [[0,0,init]], 0, false, Path, Score).
 
-find_best_path(FromAtMost, Path) :-
+find_best_path(Path, Score) :-
     % Pass FromAtMost > 0 to consider "FromAtMost" otherwise will consider all solutions
-    (FromAtMost =< 0 -> findall( P, find_touchdown(P), Bag); findnsols(FromAtMost, P, find_touchdown(P), Bag)),
-    select_element(get_less_score, Bag, Path).
-
-get_less_score(FirstPath, SecondPath, Less) :-
-    count_score(FirstPath, 0, FirstScore), count_score(SecondPath, 0, SecondScore),
-    (FirstScore < SecondScore -> Less = FirstPath; Less = SecondPath).
-
+    findall( [P,S], find_touchdown(P, S), Bag),
+    last(Bag, [Path, Score]).
 % ===========================
 % Random search
 
