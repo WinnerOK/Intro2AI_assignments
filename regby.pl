@@ -11,7 +11,7 @@
 
 % ===========================
 % Constants
-fieldSize(5,5).
+fieldSize(10,10).
 sight_distance(1).
 
 % moveDirections: (name, dx, dy)
@@ -36,8 +36,7 @@ ork(X,Y) :- current_predicate(o/2), o(X,Y).
 human(X,Y) :- current_predicate(h/2), h(X,Y).
 touchdown(X,Y) :- current_predicate(t/2), t(X,Y).
 
-init :-
-    use_module(library(clpb)),
+initialize_agent :-
     consult("input.pl").
 
 print(X, Y) :-
@@ -89,7 +88,23 @@ set_current_max(CurMax) :-
 
 get_current_max(CurMax) :-
     nb_getval(current_max, CurMax).
-    
+
+around(X1,Y1, X2, Y2) :-
+    ((abs(X1-X2)=:= 1) , ( abs(Y1-Y2)=:= 0)), ! ;
+    ((abs(X1-X2) =:= 0) , (abs(Y1-Y2) =:= 1)), !;
+    ((abs(X1-X2) =:= 1) , (abs(Y1-Y2) =:= 1)), !.
+
+prevent_out_of_bounds_move_from_the_edge(X,Y, NewPath):-
+    last(NewPath, [Xnew, Ynew, _]),
+    (
+        is_inbound(Xnew, Ynew) -> true
+    ;   \+around(X,Y, Xnew, Ynew)    
+    ).
+
+should_continue_backtrack(Check, Score) :-
+    \+Check -> true
+    ; get_current_max(MaxScore),
+      Score =< MaxScore.
 % ===========================
 % Api
 
@@ -99,8 +114,8 @@ show_map :-
     iterate(0,Y).
 
 are_adjacent(X1,Y1,X2,Y2) :-
-    Dx is abs(X1-X2), Dy is abs(Y1-Y2),
-    sat(((Dx=:= 1) * ( Dy=:= 0)) + ((Dx =:= 0) * (Dy =:= 1))).
+    ((abs(X1-X2)=:= 1) , ( abs(Y1-Y2)=:= 0)), ! ;
+    ((abs(X1-X2) =:= 0) , (abs(Y1-Y2) =:= 1)), !.
 
 is_inbound(X,Y) :-
     fieldSize(XSize, YSize),
@@ -137,8 +152,9 @@ attempt_move(X,Y, Dir, Path, CurrentScore, NewPath, NewScore) :-
 do_action(X,Y,Dir, Path, PassedThisRound, CurrentScore, CheckValidity,  
         NewPath, NewPassedThisRound, NewScore) :-
     (
-        \+PassedThisRound,  attempt_pass(X, Y, Dir, Path, CurrentScore, NewPath, NewScore), 
+        \+PassedThisRound,  attempt_pass(X, Y, Dir, Path, CurrentScore, NewPath, NewScore),
         is_valid_path(CheckValidity, NewPath), has_not_been(Path, NewPath), 
+        prevent_out_of_bounds_move_from_the_edge(X,Y, NewPath),
         NewPassedThisRound = true
     );
     (   attempt_move(X, Y, Dir, Path, CurrentScore, NewPath, NewScore), 
@@ -155,33 +171,50 @@ count_score([[X,Y,Action]| Tail], CurrentScore, FinalScore) :-
 
 % ===========================
 % Backtracking
-go(Xstart, Ystart, PathStart, CurrentScore, _, PathFinish, NewScore) :-
+go(Optimized, Xstart, Ystart, PathStart, CurrentScore, _, PathFinish, NewScore) :-
     attempt_move(Xstart, Ystart, _, PathStart, CurrentScore, PathNew, NextScore),
-    get_current_max(MaxScore),
-    NextScore =< MaxScore,
+    should_continue_backtrack(Optimized, NextScore),
     last(PathNew, [Xnew, Ynew, _]),
     touchdown(Xnew, Ynew),
+    format("\n\nTouchDown:\nScore: ~w\n", [NextScore]),
     set_current_max(NextScore),
     PathFinish = PathNew,
     NewScore = NextScore.
 
-go(Xstart, Ystart, PathStart, CurrentScore, PassedThisRound, PathFinish, NewScore) :-
+go(Optimized, Xstart, Ystart, PathStart, CurrentScore, PassedThisRound, PathFinish, NewScore) :-
     do_action(Xstart, Ystart, _, PathStart, PassedThisRound, CurrentScore, true, PathMid, PassedThisRoundMid, NewScoreMid),
-    get_current_max(MaxScore),
-    NewScoreMid =< MaxScore,
+    should_continue_backtrack(Optimized, NewScoreMid),
     last(PathMid, [Xmid, Ymid, _]),
     \+member([Xmid,Ymid, _], PathStart),
-    go(Xmid, Ymid, PathMid, NewScoreMid, PassedThisRoundMid,  PathFinish, NewScore).
+    go(Optimized, Xmid, Ymid, PathMid, NewScoreMid, PassedThisRoundMid,  PathFinish, NewScore).
     
-find_touchdown(Path, Score) :-
+find_touchdown(Optimized, Path, Score) :-
     get_max_steps_count(MaxScore),
     set_current_max(MaxScore),
-    go(0, 0, [[0,0,init]], 0, false, Path, Score).
+    go(Optimized, 0, 0, [[0,0,init]], 0, false, Path, Score).
+
+find_best_path_optimized(Path, Score) :-
+    findall( [P,S], find_touchdown(true, P, S), Bag),
+    last(Bag, [Path, Score]).
+
+select_element(Goal, [Head | Tail], Selected) :-
+    select_element(Goal, Tail, Head, Selected).
+
+
+select_element(_Goal, [], Selected, Selected).
+
+select_element(Goal, [Head | Tail], Current, FinalSelected) :-
+    call(Goal, Head, Current, Selected),
+    select_element(Goal, Tail, Selected, FinalSelected).
+
+get_better_path(First, Second, Result) :-
+    [_, FirstLength] = First, [_, SecondLength] = Second,
+    FirstLength < SecondLength -> Result = First; Result = Second.
 
 find_best_path(Path, Score) :-
     % Pass FromAtMost > 0 to consider "FromAtMost" otherwise will consider all solutions
-    findall( [P,S], find_touchdown(P, S), Bag),
-    last(Bag, [Path, Score]).
+    findall( [P,S], find_touchdown(false, P, S), Bag),
+    select_element(get_better_path, Bag, [Score, Path]).
 % ===========================
 % Random search
 
@@ -193,6 +226,7 @@ get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps) :-
 
 make_random_step(X, Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore) :-
     get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps),
+format("\nPossibleSteps: ~w\n", [PossibleSteps]),
     length(PossibleSteps, PossibleStepsCount),
     random_between(1, PossibleStepsCount, RandomStepIndex),
     nth1(RandomStepIndex, PossibleSteps, RandomStep),
@@ -201,8 +235,10 @@ make_random_step(X, Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedTh
 
 generate_random_path(X,Y,Path, PassedThisRound, CurrentScore, StepsLeft, RandomPath, RandomPathScore) :-
     StepsLeft > 0,
-    once(make_random_step(X,Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore)), 
-    is_valid_path(true, NewPath), !, % Cut to disable change of random move
+    make_random_step(X,Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore), 
+    is_valid_path(true, NewPath), 
+    format("\nNewPath: ~w\n", [NewPath])
+    ,!, % Cut to disable change of random move
     last(NewPath, [NewX, NewY, _]),
     (
         (touchdown(NewX, NewY), RandomPath = NewPath, RandomPathScore = NewScore, !);
@@ -215,5 +251,6 @@ generate_random_path(X,Y,Path, PassedThisRound, CurrentScore, StepsLeft, RandomP
 random_search(StepsAllowed, RandomPath, RandomPathScore) :-
     generate_random_path(0, 0, [[0,0,init]], false, 0, StepsAllowed, RandomPath, RandomPathScore).
 
+
  :-
-    init.
+    initialize_agent. 
