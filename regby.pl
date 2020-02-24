@@ -37,6 +37,7 @@ human(X,Y) :- current_predicate(h/2), h(X,Y).
 touchdown(X,Y) :- current_predicate(t/2), t(X,Y).
 
 init :-
+    use_module(library(clpb)),
     consult("input.pl").
 
 print(X, Y) :-
@@ -98,8 +99,8 @@ show_map :-
     iterate(0,Y).
 
 are_adjacent(X1,Y1,X2,Y2) :-
-    (abs(X1-X2) =:= 1, abs(Y1-Y2) =:= 0);
-    (abs(X1-X2) =:= 0, abs(Y1-Y2) =:= 1).
+    Dx is abs(X1-X2), Dy is abs(Y1-Y2),
+    sat(((Dx=:= 1) * ( Dy=:= 0)) + ((Dx =:= 0) * (Dy =:= 1))).
 
 is_inbound(X,Y) :-
     fieldSize(XSize, YSize),
@@ -184,35 +185,35 @@ find_best_path(Path, Score) :-
 % ===========================
 % Random search
 
-get_possible_steps(X,Y, Path, PassedThisRound, PossibleSteps) :-
+get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps) :-
     findall(
-        [NewPassedThisRound|[NewPath]], 
-        do_action(X,Y, _, Path, PassedThisRound, false, NewPath, NewPassedThisRound), 
+        [NewPassedThisRound, NewScore, NewPath], 
+        do_action(X,Y, _, Path, PassedThisRound, CurrentScore, false, NewPath, NewPassedThisRound, NewScore), 
         PossibleSteps).
 
-make_random_step(X, Y, Path, PassedThisRound, NewPath, NewPassedThisRound) :-
-    get_possible_steps(X,Y, Path, PassedThisRound, PossibleSteps),
+make_random_step(X, Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore) :-
+    get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps),
     length(PossibleSteps, PossibleStepsCount),
     random_between(1, PossibleStepsCount, RandomStepIndex),
     nth1(RandomStepIndex, PossibleSteps, RandomStep),
-    [NewPassedThisRound, NewPath] = RandomStep.
+    [NewPassedThisRound, NewScore, NewPath] = RandomStep.
 
 
-generate_random_path(X,Y,Path, PassedThisRound, StepsLeft, RandomPath) :-
+generate_random_path(X,Y,Path, PassedThisRound, CurrentScore, StepsLeft, RandomPath, RandomPathScore) :-
     StepsLeft > 0,
-    once(make_random_step(X,Y, Path, PassedThisRound, NewPath, NewPassedThisRound)), 
+    once(make_random_step(X,Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore)), 
     is_valid_path(true, NewPath), !, % Cut to disable change of random move
     last(NewPath, [NewX, NewY, _]),
     (
-        (touchdown(NewX, NewY), RandomPath = NewPath, !);
+        (touchdown(NewX, NewY), RandomPath = NewPath, RandomPathScore = NewScore, !);
         (
             NewStepsLeft is StepsLeft - 1, 
-            generate_random_path(NewX, NewY, NewPath, NewPassedThisRound, NewStepsLeft, RandomPath)
+            generate_random_path(NewX, NewY, NewPath, NewPassedThisRound, NewScore, NewStepsLeft, RandomPath, RandomPathScore)
         )
     ).
 
-random_search(StepsAllowed, RandomPath) :-
-    generate_random_path(0, 0, [[0,0,init]], false, StepsAllowed, RandomPath).
+random_search(StepsAllowed, RandomPath, RandomPathScore) :-
+    generate_random_path(0, 0, [[0,0,init]], false, 0, StepsAllowed, RandomPath, RandomPathScore).
 
  :-
     init.
