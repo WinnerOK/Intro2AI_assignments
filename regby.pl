@@ -11,7 +11,7 @@
 
 % ===========================
 % Constants
-fieldSize(10,10).
+% fieldSize(5,5).
 sight_distance(1).
 
 % moveDirections: (name, dx, dy)
@@ -35,9 +35,6 @@ throwDir(botL, -1,-1).
 ork(X,Y) :- current_predicate(o/2), o(X,Y).
 human(X,Y) :- current_predicate(h/2), h(X,Y).
 touchdown(X,Y) :- current_predicate(t/2), t(X,Y).
-
-initialize_agent :-
-    consult("input.pl").
 
 print(X, Y) :-
     ( 
@@ -105,6 +102,16 @@ should_continue_backtrack(Check, Score) :-
     \+Check -> true
     ; get_current_max(MaxScore),
       Score =< MaxScore.
+
+time(P) :-
+    open("time.txt", append, Out),
+    statistics(walltime, _),
+    P,
+    statistics(walltime, [_ , T]),
+    write(Out, T), 
+    % write(Out, ' msec'), 
+    write(Out, "\n"),
+    close(Out).
 % ===========================
 % Api
 
@@ -169,6 +176,11 @@ count_score([[X,Y,Action]| Tail], CurrentScore, FinalScore) :-
     ((Action = move, human(X,Y)) -> NewScore is CurrentScore; NewScore is CurrentScore + 1),
     count_score(Tail, NewScore, FinalScore). 
 
+first_step_check(Solved):-
+    ork(0,0) -> ( Solved = die)
+    ; touchdown(0,0) -> (Solved = win)
+    ; (Solved = continue, true).
+
 % ===========================
 % Backtracking
 go(Optimized, Xstart, Ystart, PathStart, CurrentScore, _, PathFinish, NewScore) :-
@@ -176,7 +188,7 @@ go(Optimized, Xstart, Ystart, PathStart, CurrentScore, _, PathFinish, NewScore) 
     should_continue_backtrack(Optimized, NextScore),
     last(PathNew, [Xnew, Ynew, _]),
     touchdown(Xnew, Ynew),
-    format("\n\nTouchDown:\nScore: ~w\n", [NextScore]),
+    % format("\n\nTouchDown:\nScore: ~w\n", [NextScore]),
     set_current_max(NextScore),
     PathFinish = PathNew,
     NewScore = NextScore.
@@ -186,12 +198,16 @@ go(Optimized, Xstart, Ystart, PathStart, CurrentScore, PassedThisRound, PathFini
     should_continue_backtrack(Optimized, NewScoreMid),
     last(PathMid, [Xmid, Ymid, _]),
     \+member([Xmid,Ymid, _], PathStart),
+    % format("New Path: ~w\nScore: ~w\n\n", [PathMid, NewScoreMid]),
     go(Optimized, Xmid, Ymid, PathMid, NewScoreMid, PassedThisRoundMid,  PathFinish, NewScore).
     
 find_touchdown(Optimized, Path, Score) :-
     get_max_steps_count(MaxScore),
     set_current_max(MaxScore),
-    go(Optimized, 0, 0, [[0,0,init]], 0, false, Path, Score).
+    first_step_check(Solved),
+    ((Solved = win) -> (Path =[[0,0,init]], Score = 0) % the best path will definetely be at (0;0)
+    ;(Solved = die) -> false
+    ;(Solved = continue) -> go(Optimized, 0, 0, [[0,0,init]], 0, false, Path, Score)).
 
 find_best_path_optimized(Path, Score) :-
     findall( [P,S], find_touchdown(true, P, S), Bag),
@@ -226,7 +242,7 @@ get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps) :-
 
 make_random_step(X, Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore) :-
     get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps),
-format("\nPossibleSteps: ~w\n", [PossibleSteps]),
+    % format("\nPossibleSteps: ~w\n", [PossibleSteps]),
     length(PossibleSteps, PossibleStepsCount),
     random_between(1, PossibleStepsCount, RandomStepIndex),
     nth1(RandomStepIndex, PossibleSteps, RandomStep),
@@ -237,8 +253,8 @@ generate_random_path(X,Y,Path, PassedThisRound, CurrentScore, StepsLeft, RandomP
     StepsLeft > 0,
     make_random_step(X,Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore), 
     is_valid_path(true, NewPath), 
-    format("\nNewPath: ~w\n", [NewPath])
-    ,!, % Cut to disable change of random move
+    % format("\nNewPath: ~w\n", [NewPath]),
+    !, % Cut to disable change of random move
     last(NewPath, [NewX, NewY, _]),
     (
         (touchdown(NewX, NewY), RandomPath = NewPath, RandomPathScore = NewScore, !);
@@ -251,6 +267,29 @@ generate_random_path(X,Y,Path, PassedThisRound, CurrentScore, StepsLeft, RandomP
 random_search(StepsAllowed, RandomPath, RandomPathScore) :-
     generate_random_path(0, 0, [[0,0,init]], false, 0, StepsAllowed, RandomPath, RandomPathScore).
 
+run_random(Times, StepsAllowed):-
+    between(1, Times, _),
+    ((random_search(StepsAllowed, Path, Score), format("Path:~w\nScore:~w\n\n", [Path, Score])) ; format("No sol\n\n")).
+    
+test_bt_opt :-
+    open("time.txt", append, Out),
+    time(find_best_path_optimized(_,_); write(Out, "No ")),
+    close(Out).
 
- :-
-    initialize_agent. 
+
+test_rand :-
+    open("time.txt", append, Out),
+    time(
+        (random_search(100, _, _); write(Out, "No "))
+    ),
+    close(Out).
+
+test_bt :-
+    open("time.txt", append, Out),
+    time(find_best_path(_, _); write(Out, "No ")),
+    close(Out).
+
+:-
+    consult("input.pl"),
+    test_bt_opt, halt(0).
+    

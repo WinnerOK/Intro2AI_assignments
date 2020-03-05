@@ -5,7 +5,8 @@ with open("map.txt") as f:
 i, j = 0, 0
 
 out = open("input.pl", "w")
-out.write(":- module(input, [h/2,o/2,t/2]).\n\n")
+out.write(":- module(input, [h/2,o/2,t/2,fieldSize/2]).\n\n")
+out.write("fieldSize({0}, {0}).\n\n".format(len(content)))
 pattern = "%s(%d, %d).\n"
 
 mapper = {"O": "o", "T": "t", "H": "h"}
