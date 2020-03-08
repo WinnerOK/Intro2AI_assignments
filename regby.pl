@@ -11,7 +11,7 @@
 
 % ===========================
 % Constants
-fieldSize(10,10). % this should be specified either in input file if differs, or here if constant
+% fieldSize(10,10). % this should be specified either in input file if differs, or here if constant
 sight_distance(1).
 
 % move and throw directions: (name, dx, dy)
@@ -46,7 +46,7 @@ print(X, Y) :-
       ; write("█")
     ).
 
-% Utility function to implement show_map.
+% Utility predicate to implement show_map.
 iterate(Y) :-
     write(Y), write(" "), 
     Y > 0, Ynew is Y - 1, 
@@ -103,7 +103,7 @@ around(X1,Y1, X2, Y2) :-
     ((abs(X1-X2) =:= 0) , (abs(Y1-Y2) =:= 1)), !;
     ((abs(X1-X2) =:= 1) , (abs(Y1-Y2) =:= 1)), !.
 
-% Utility function for random search in order to prevent the agent
+% Utility predicate for random search in order to prevent the agent
 % going out of bounds if it is near the boundary
 prevent_out_of_bounds_move_from_the_edge(X,Y, NewPath):-
     last(NewPath, [Xnew, Ynew, _]),
@@ -112,24 +112,28 @@ prevent_out_of_bounds_move_from_the_edge(X,Y, NewPath):-
     ;   \+around(X,Y, Xnew, Ynew)    
     ).
 
-% Function telling whether the agent should continue optimized backtrack
+% predicate telling whether the agent should continue optimized backtrack
 % (The agent should stop if current score > Max score)
 should_continue_backtrack(Check, Score) :-
     \+Check -> true
     ; get_current_max(MaxScore),
       Score =< MaxScore.
 
-% A function to write statistics
+% A predicate to write statistics
 time(P) :-
-    open("time.txt", append, Out),
-    write(Out, "^"),
     statistics(walltime, _),
     (P),
     statistics(walltime, [_ , T]),
-    write(Out, T), 
-    % write(Out, ' msec'), 
-    write(Out, "&\n"),
-    close(Out).
+    format("~w msec\n", [T]).
+
+print_path([]).
+
+print_path([[X, Y, Type]|Tail]) :-
+    Type = pass -> (format("P ~w ~w\n", [X,Y]), print_path(Tail)) ; (format("~w ~w\n", [X,Y]), print_path(Tail)).
+
+print_path([_| Path], S) :-
+    format("~w\n", [S]),
+    print_path(Path).
 % ===========================
 % Api
 
@@ -195,7 +199,7 @@ do_action(X,Y,Dir, Path, PassedThisRound, CurrentScore, CheckValidity,
         is_valid_path(CheckValidity, NewPath), has_not_been(Path, NewPath), 
         NewPassedThisRound = PassedThisRound
     ).
-% A function catching cases when ork or touchdown on (0,0). 
+% A predicate catching cases when ork or touchdown on (0,0). 
 % Case with human(0,0) makes no interesting
 first_step_check(Solved):-
     ork(0,0) -> ( Solved = die)
@@ -211,7 +215,7 @@ go(Optimized, Xstart, Ystart, PathStart, CurrentScore, _, PathFinish, NewScore) 
     should_continue_backtrack(Optimized, NextScore), % for optimized BT check whether path is acceptable
     last(PathNew, [Xnew, Ynew, _]),
     touchdown(Xnew, Ynew), !, % if there is a touchdown - stop.
-    format("\n\nTouchDown:\nScore: ~w\n", [NextScore]),
+    % format("\n\nTouchDown:\nScore: ~w\n", [NextScore]),
     set_current_max(NextScore),
     PathFinish = PathNew,
     NewScore = NextScore.
@@ -226,7 +230,7 @@ go(Optimized, Xstart, Ystart, PathStart, CurrentScore, PassedThisRound, PathFini
     % format("New Path: ~w\nScore: ~w\n\n", [PathMid, NewScoreMid]),
     go(Optimized, Xmid, Ymid, PathMid, NewScoreMid, PassedThisRoundMid,  PathFinish, NewScore).
 
-% a function to start backtracking if you don't win or die at (0,0) 
+% a predicate to start backtracking if you don't win or die at (0,0) 
 find_touchdown(Optimized, Path, Score) :-
     get_max_steps_count(MaxScore),
     set_current_max(MaxScore),
@@ -240,7 +244,7 @@ find_best_path_optimized(Path, Score) :-
     findall( [P,S], find_touchdown(true, P, S), Bag),
     last(Bag, [Path, Score]).
 
-% a function that return the best item based on predicate Goal.
+% a predicate that return the best item based on predicate Goal.
 select_element(Goal, [Head | Tail], Selected) :-
     select_element(Goal, Tail, Head, Selected).
 
@@ -252,7 +256,7 @@ select_element(Goal, [Head | Tail], Current, FinalSelected) :-
     call(Goal, Head, Current, Selected),
     select_element(Goal, Tail, Selected, FinalSelected).
 
-% A function returning a pair [Path, Score] with less Score
+% A predicate returning a pair [Path, Score] with less Score
 get_better_path(First, Second, Result) :-
     [_, FirstLength] = First, [_, SecondLength] = Second,
     FirstLength < SecondLength -> Result = First; Result = Second.
@@ -263,14 +267,14 @@ find_best_path(Path, Score) :-
     select_element(get_better_path, Bag, [Path, Score]), format("Best Score: ~w\n", [Score]),!.
 % ===========================
 % Random search
-% A function to generate all possible moves from X, Y, without checking their validity
+% A predicate to generate all possible moves from X, Y, without checking their validity
 get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps) :-
     findall(
         [NewPassedThisRound, NewScore, NewPath], 
         do_action(X,Y, _, Path, PassedThisRound, CurrentScore, false, NewPath, NewPassedThisRound, NewScore), 
         PossibleSteps).
 
-% A function to make 1 random step from (X, Y)
+% A predicate to make 1 random step from (X, Y)
 % Generates list of possible moves, takes 1 at random
 make_random_step(X, Y, Path, PassedThisRound, CurrentScore, NewPath, NewPassedThisRound, NewScore) :-
     get_possible_steps(X,Y, Path, PassedThisRound, CurrentScore, PossibleSteps),
@@ -310,7 +314,16 @@ run_random_(Times, StepsAllowed, Path, Score):-
 run_random(Times, StepsAllowed, Path, Score) :-
     findall([P,S], run_random_(Times, StepsAllowed, P, S), Bag), !,
     select_element(get_better_path, Bag, [Path, Score]), !.
-    
+
+out_optimized :-
+    time((find_best_path_optimized(P,S), print_path(P,S))).
+
+out_backtracking :-
+    time((find_best_path(P,S), print_path(P,S))).
+
+out_random :-
+    time((run_random(100, 100, P, S), print_path(P,S))).
+
 test_bt_opt :-
     open("time.txt", append, Out),
     (find_best_path_optimized(_,S), format(Out, "Yes-~w ", [S]); write(Out, "No ")),
@@ -331,5 +344,4 @@ test_bt :-
 
 :-
     consult("input.pl").
-    % test_bt, halt(0).
     
