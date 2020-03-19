@@ -1,14 +1,11 @@
-# Ignore everything
-*
+.idea/
 
-# But not these files...
-!.gitignore
-!field_generator.py
-#!input.pl
-#!map.txt
-!README.md
-!regby.pl
-!tasks.json
-
-# ...even if they are in subdirectories
-#!*/
+Assignment1/*
+!Assignment1/regby.pl
+!Assignment1/.vscode/
+!Assignment1/README.md
+!Assignment1/field_generator.py
+!Assignment1/input.pl
+!Assignment1/map.txt
+!Assignment1/report.pdf
+!Assignment1/tests
