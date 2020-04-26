@@ -1,0 +1,6 @@
+000000 - 0.590269 seconds		Fitness -	9513706.0
+000500 - 153.130105 seconds		Fitness -	8915996.0
+001000 - 299.805120 seconds		Fitness -	8542970.0
+001500 - 460.884626 seconds		Fitness -	8252451.0
+002000 - 621.285123 seconds		Fitness -	7997658.0
+002500 - 776.387486 seconds		Fitness -	7776864.0

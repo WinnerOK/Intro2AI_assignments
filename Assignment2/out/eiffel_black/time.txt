@@ -1,0 +1,37 @@
+/usr/bin/python3.6 "/home/daniil/Coding/Innopolis courses/Intro2AI/Assignments/Assignment2/line_try/main.py"
+Started evolution
+000000 - 1.487042 seconds		Fitness -	46370370.0
+000500 - 152.175973 seconds		Fitness -	42711641.0
+001000 - 307.416426 seconds		Fitness -	39430127.0
+001500 - 462.015865 seconds		Fitness -	36453628.0
+002000 - 619.995083 seconds		Fitness -	33736108.0
+002500 - 771.629605 seconds		Fitness -	31266969.0
+003000 - 920.718016 seconds		Fitness -	29020938.0
+003500 - 1067.041022 seconds		Fitness -	26955757.0
+004000 - 1239.675759 seconds		Fitness -	25092051.0
+004500 - 1398.238554 seconds		Fitness -	23401545.0
+005000 - 1563.202102 seconds		Fitness -	21903920.0
+005500 - 1705.898495 seconds		Fitness -	20535597.0
+006000 - 1847.919704 seconds		Fitness -	19344351.0
+006500 - 1989.629041 seconds		Fitness -	18306698.0
+007000 - 2131.652868 seconds		Fitness -	17423556.0
+007500 - 2272.947980 seconds		Fitness -	16665393.0
+008000 - 2413.720835 seconds		Fitness -	16049524.0
+008500 - 2555.688518 seconds		Fitness -	15540901.0
+009000 - 2697.528471 seconds		Fitness -	15118239.0
+009500 - 2838.967098 seconds		Fitness -	14771959.0
+010000 - 2981.486524 seconds		Fitness -	14481492.0
+010500 - 3124.435910 seconds		Fitness -	14230788.0
+011000 - 3266.906996 seconds		Fitness -	14014202.0
+011500 - 3407.745102 seconds		Fitness -	13821059.0
+012000 - 3548.538488 seconds		Fitness -	13645105.0
+012500 - 3689.658079 seconds		Fitness -	13489218.0
+013000 - 3831.363941 seconds		Fitness -	13336617.0
+013500 - 3971.872848 seconds		Fitness -	13193974.0
+014000 - 4113.362986 seconds		Fitness -	13066111.0
+014500 - 4254.216304 seconds		Fitness -	12948681.0
+015000 - 4395.373697 seconds		Fitness -	12831203.0
+015500 - 4537.035150 seconds		Fitness -	12724801.0
+016000 - 4677.860619 seconds		Fitness -	12624515.0
+016500 - 4822.341963 seconds		Fitness -	12530267.0
+
