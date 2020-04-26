@@ -6,7 +6,7 @@ import numpy as np
 from utils import generate_population, calculate_population_fitness, \
     select_breeding_pool, do_crossover, mutate
 
-IMAGE_FILE = "./images/img2.jpg"
+IMAGE_FILE = "./images/apple.jpg"
 
 LINE_LENGTH = 64  # 64 is optimal for big objects
 # 240 for cat
@@ -15,7 +15,7 @@ LINE_LENGTH = 64  # 64 is optimal for big objects
 # 38 for pepsi
 # 0 for starbucks2
 # 100 for plains
-BACKGROUND_COLOR = 100
+BACKGROUND_COLOR = 255
 
 POPULATION_SIZE = 128
 BREEDING_INDIVIDUALS = 28
@@ -24,7 +24,11 @@ CROSSOVER_INDIVIDUALS = POPULATION_SIZE - BREEDING_INDIVIDUALS
 
 # =======================================================================================
 
-def simulate(target):
+def simulate(target: np.ndarray) -> None:
+    """
+    Start main GA loop
+    :param target: target image
+    """
     population = generate_population(POPULATION_SIZE, target.shape, default_color=BACKGROUND_COLOR)
     fitness = calculate_population_fitness(population, target)
     start = time()
@@ -55,5 +59,5 @@ if __name__ == '__main__':
     target_image = cv2.imread(IMAGE_FILE)
     target_image = cv2.cvtColor(target_image, cv2.COLOR_BGR2GRAY)
     cv2.imshow("Target", target_image)
-    cv2.waitKey(0)
+    # cv2.waitKey(0)
     simulate(target_image)

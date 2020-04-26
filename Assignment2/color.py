@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, Optional
 
 import cv2
 import numpy as np
@@ -14,7 +14,11 @@ if COLOR_CHILDREN_TO_PRODUCE < 0:
 COLOR_MAX_EVOLUTION_STEPS = 5
 
 
-def color_initiate_population(line_points, opacity: float):
+def color_initiate_population(line_points: np.ndarray, opacity: float) -> np.ndarray:
+    """
+    Create initial population filling each individual with the same colors as
+    corresponding pixels will have if mix line_points with line of random color with given <opacity>
+    """
     colors = list(map(int, np.random.randint(low=0, high=256, size=COLOR_POPULATION_SIZE)))
     initial_population = np.repeat(line_points[np.newaxis, ...], COLOR_POPULATION_SIZE, axis=0)
     for i in range(COLOR_POPULATION_SIZE):
@@ -23,14 +27,20 @@ def color_initiate_population(line_points, opacity: float):
     return initial_population
 
 
-def calculate_color_fitness(target_part, population):
+def calculate_color_fitness(target_part: np.ndarray, population: np.ndarray) -> np.ndarray:
+    """
+    Calculate each individual's intensity error compared to target
+    """
     fitness = np.zeros(population.shape[0])
     for i in range(len(population)):
         fitness[i] = np.sum(np.absolute(target_part - population[i]))
     return fitness
 
 
-def select_parents_pool(fitness, population):
+def select_parents_pool(fitness: np.ndarray, population: np.ndarray) -> Tuple[Optional[np.ndarray], Optional[int]]:
+    """
+    Select parents from <population> based on <fitness>. (The more fitness - the more probability to be selected)
+    """
     minimum_error_idx = fitness.argmin()
     min_error = fitness[minimum_error_idx]
     if min_error == 0:
@@ -50,7 +60,10 @@ def select_parents_pool(fitness, population):
     return parents, None
 
 
-def perform_crossover(parents):
+def perform_crossover(parents: np.ndarray) -> np.ndarray:
+    """
+    Create children from <parents> as average between 2 randomly selected.
+    """
     crossover = np.zeros((COLOR_CHILDREN_TO_PRODUCE, *parents[0].shape))
     for i in range(COLOR_CHILDREN_TO_PRODUCE):
         p1 = np.random.randint(0, len(parents))
@@ -62,6 +75,12 @@ def perform_crossover(parents):
 
 def choose_best_color(target_line: np.ndarray, image_line: np.ndarray, opacity: float) \
         -> Tuple[np.ndarray, int]:
+    """
+    Run a simple GA to calculate the best fit color of the line to be placed over <image_line> with given <opacity>
+     in comparison with <target_line>
+
+    :returns: (best fit line after mixing with <image_line>, sum of color error of each pixel at line)
+    """
     color_evolution_step = 0
     target_line = target_line.astype(np.int16)
     image_line = image_line.astype(np.int16)
