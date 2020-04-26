@@ -1,4 +1,6 @@
 .idea/
+.venv/*
+*.pyc
 
 Assignment1/*
 !Assignment1/regby.pl
@@ -9,3 +11,6 @@ Assignment1/*
 !Assignment1/map.txt
 !Assignment1/report.pdf
 !Assignment1/tests
+
+
+Assignment2/out/*/*
