@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import numba
 import numpy as np
@@ -9,19 +9,32 @@ LINE_LENGTH_OFFSET = 5
 OPACITY = 0.12
 
 
-def generate_population(population_size, shape, default_color=255):
+def generate_population(population_size: int, shape: Tuple[int, ...], default_color: int = 255) -> np.ndarray:
+    """
+    Generate initial population: <population_size> images of shape <shape> filled with <default_color>
+
+    :param population_size: # individuals
+    :param shape: shape of each individual
+    :param default_color: filling color
+    """
     population = np.full(shape=(population_size, *shape), fill_value=default_color, dtype=np.uint8)
     return population
 
 
-def calculate_population_fitness(population, target):
+def calculate_population_fitness(population: np.ndarray, target: np.ndarray) -> np.ndarray:
+    """
+    Calculate each individual's intensity error compared to target
+    """
     fitness = np.zeros(population.shape[0])
     for i in range(len(population)):
         fitness[i] = np.sum(np.absolute(target - population[i]))
     return fitness
 
 
-def select_breeding_pool(population, fitness, breeding_count):
+def select_breeding_pool(population: np.ndarray, fitness: np.ndarray, breeding_count: int) -> np.ndarray:
+    """
+    Get <breeding_count> best individuals based on <fitness> from <population>
+    """
     parents = np.zeros(shape=(breeding_count, *population.shape[1:]), dtype=np.uint8)
 
     ind = np.argsort(fitness)
@@ -30,7 +43,16 @@ def select_breeding_pool(population, fitness, breeding_count):
     return parents
 
 
-def do_crossover(parents, breeding_count, image_shape, crossover_count):
+def do_crossover(parents: np.ndarray, breeding_count: int, image_shape: Tuple[int, ...],
+                 crossover_count: int) -> np.ndarray:
+    """
+    Create <crossover_count> children from <breeding_count> parents in <parents> with dimensions <image_shape>
+
+    :param parents:
+    :param breeding_count:
+    :param image_shape:
+    :param crossover_count:
+    """
     children = np.zeros(shape=(crossover_count, *image_shape), dtype=np.uint8)
     crossover_point = int(image_shape[0] / 2)
     for i in range(crossover_count):
@@ -49,6 +71,9 @@ def do_crossover(parents, breeding_count, image_shape, crossover_count):
 
 @numba.njit(parallel=True)
 def minmax(a: int, b: int) -> Tuple[int, int]:
+    """
+    Calculate minimum and maximum out of 2 numbers
+    """
     minimum = min(a, b)
     maximum = max(a, b)
     return minimum, maximum
@@ -56,7 +81,10 @@ def minmax(a: int, b: int) -> Tuple[int, int]:
 
 @numba.njit()
 # The following function is taken from https://stackoverflow.com/a/25913345/6766934
-def get_line(x1, y1, x2, y2):
+def get_line(x1: int, y1: int, x2: int, y2: int) -> List[Tuple[int, int]]:
+    """
+    Calculate discrete interval the line interval between points (x1, y1) and (x2, y2)
+    """
     points = []
     issteep = abs(y2 - y1) > abs(x2 - x1)
     if issteep:
@@ -91,7 +119,12 @@ def get_line(x1, y1, x2, y2):
     return points
 
 
-def draw_line(image, line_length, image_shape, line_count, target):
+def draw_line(image: np.ndarray, line_length: int, image_shape: Tuple[int, ...], line_count: int,
+              target: np.ndarray) -> None:
+    """
+    Draw on <image> of dimensions <image_shape> <line_count> lines of length ~~<line_length> such that line color
+    almost the same as the corresponding line color at <target>
+    """
     for _ in range(line_count):
         offset = 0
         x_start = np.random.randint(offset, image_shape[1] - offset)
@@ -128,7 +161,13 @@ def draw_line(image, line_length, image_shape, line_count, target):
             image[y, x] = color
 
 
-def mutate(population, image_shape, population_size, line_length, target):
+def mutate(population: np.ndarray, image_shape: Tuple[int, ...], population_size: int, line_length: int,
+           target: np.ndarray) -> np.ndarray:
+    """
+    Mutate each individual of dimensions <image_shape> from <population> (length = <population_size>):
+    with probability 90% draw from 1 to 5 lines of length ~~<line_length> such that line color
+    almost the same as the corresponding line color at <target>
+    """
     for i in range(population_size):
         if np.random.uniform(0, 1) < 0.9:
             line_count = np.random.randint(1, 5)
